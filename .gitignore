@@ -1,0 +1,43 @@
+# Kubernetes secrets - NEVER commit actual secrets!
+**/secret.yaml
+secret.yaml
+
+# Exclude example files from ignore
+!**/secret.yaml.example
+!secret.yaml.example
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Local development
+.env
+.env.local
+kubeconfig
+*.key
+*.pem
+*.crt
+
+# Test outputs
+test-results/
+coverage/
+
+# Test agents
+test-agents/.env
+test-agents/.env.local
+test-agents/__pycache__/
+test-agents/**/__pycache__/
+test-agents/.adk/
+test-agents/uv.lock
