@@ -16,7 +16,4 @@ spec:
     port: 8080
     targetPort: 8080
     protocol: TCP
-  sessionAffinity: ClientIP
-  sessionAffinityConfig:
-    clientIP:
-      timeoutSeconds: 10800  # 3 hours
+  # No session affinity needed for stateless streamable HTTP

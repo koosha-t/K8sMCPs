@@ -4,7 +4,7 @@ Official GitHub MCP server deployed on Kubernetes, enabling AI agents to interac
 
 ## Overview
 
-The GitHub MCP Server provides programmatic access to GitHub through the Model Context Protocol (MCP). It runs in Kubernetes using Supergateway to expose the stdio-based server via HTTP/SSE transport.
+The GitHub MCP Server provides programmatic access to GitHub through the Model Context Protocol (MCP). It runs in Kubernetes using Supergateway to expose the stdio-based server via Streamable HTTP transport.
 
 **Key Features:**
 - Repository management (browse, search, analyze)
@@ -102,10 +102,8 @@ make registry-down      # Stop local registry
 
 **In-cluster URL:**
 ```
-http://github-mcp-server.mcp-servers.svc.cluster.local:8080
+http://github-mcp-server.mcp-servers.svc.cluster.local:8080/mcp
 ```
-
-The server uses Supergateway and exposes SSE transport at `/sse` and `/message` endpoints.
 
 ## Testing with an Agent
 
