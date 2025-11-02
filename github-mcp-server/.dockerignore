@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# Environment files
+.env
+.env.*
+!.env.template
+
+# Documentation
+README.md
+*.md
+
+# Kubernetes manifests (not needed in image)
+*.yaml
+*.yml
+
+# Make
+Makefile
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
