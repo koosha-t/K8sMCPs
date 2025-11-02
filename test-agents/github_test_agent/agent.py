@@ -4,9 +4,8 @@ ADK Agent for GitHub MCP Server Testing
 This agent connects to the GitHub MCP server to test repository operations,
 issue management, pull requests, and GitHub Actions workflows.
 
-Note: The GitHub MCP server uses Supergateway which wraps the stdio-based
-MCP server with HTTP/SSE transport. Therefore, we use SseConnectionParams
-instead of StreamableHTTPConnectionParams (which is for FastMCP servers).
+Note: The GitHub MCP server uses Supergateway with Streamable HTTP transport.
+We use StreamableHTTPConnectionParams to connect to the /mcp endpoint.
 """
 
 import os
@@ -14,7 +13,7 @@ from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
-from google.adk.tools.mcp_tool.mcp_session_manager import SseConnectionParams
+from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnectionParams
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,8 +21,8 @@ load_dotenv()
 # Get configuration from environment
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
-# Supergateway exposes SSE endpoint at /sse
-GITHUB_MCP_URL = os.getenv("GITHUB_MCP_SERVER_URL", "http://localhost:8080/sse")
+# Supergateway exposes Streamable HTTP endpoint at /mcp
+GITHUB_MCP_URL = os.getenv("GITHUB_MCP_SERVER_URL", "http://localhost:8080/mcp")
 
 # Validate required configuration
 if not OPENAI_API_KEY:
@@ -102,10 +101,10 @@ root_agent = LlmAgent(
         "so be thorough in your responses and surface any issues or limitations you encounter."
     ),
 
-    # Connect to GitHub MCP server via Supergateway (SSE transport)
+    # Connect to GitHub MCP server via Supergateway (Streamable HTTP transport)
     tools=[
         MCPToolset(
-            connection_params=SseConnectionParams(
+            connection_params=StreamableHTTPConnectionParams(
                 url=GITHUB_MCP_URL
             )
         )

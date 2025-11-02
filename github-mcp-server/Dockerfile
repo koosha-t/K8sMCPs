@@ -7,7 +7,7 @@ FROM node:20-alpine
 
 # Metadata
 LABEL maintainer="K8sMCPs"
-LABEL description="GitHub MCP Server with HTTP/SSE support via Supergateway"
+LABEL description="GitHub MCP Server with Streamable HTTP support via Supergateway"
 LABEL version="1.0"
 
 # Set working directory
@@ -32,17 +32,17 @@ USER node
 # Expose HTTP port for Supergateway
 EXPOSE 8080
 
-# Health check endpoint (Supergateway provides SSE endpoint)
+# Health check using netcat to check if port 8080 is listening
+# Note: /mcp endpoint only accepts POST, not GET, so we use TCP check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/sse || exit 1
+  CMD nc -z localhost 8080 || exit 1
 
 # Run Supergateway wrapping the GitHub MCP server
 # Supergateway will:
 # - Spawn github-mcp-server stdio as a child process
-# - Expose it via HTTP/SSE on port 8080
-# - Handle stdio <-> HTTP translation
+# - Expose it via Streamable HTTP on port 8080 at /mcp endpoint
+# - Handle stdio <-> HTTP translation in stateless mode
 CMD ["supergateway", \
      "--stdio", "github-mcp-server stdio", \
-     "--port", "8080", \
-     "--ssePath", "/sse", \
-     "--messagePath", "/message"]
+     "--outputTransport", "streamableHttp", \
+     "--port", "8080"]
