@@ -98,6 +98,18 @@ make kind-down          # Delete kind cluster
 make registry-down      # Stop local registry
 ```
 
+## AKS Deployment
+
+```bash
+# Set kubectl context and deploy everything
+kubectl config use-context <your-aks-cluster>
+make aks-deploy-full
+
+# Then use existing commands
+make verify
+make logs
+```
+
 ## Using the Server
 
 **In-cluster URL:**

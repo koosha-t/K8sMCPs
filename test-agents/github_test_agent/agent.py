@@ -19,24 +19,32 @@ from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnecti
 load_dotenv()
 
 # Get configuration from environment
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+AZURE_DEPLOYMENT = os.getenv("AZURE_DEPLOYMENT_NAME")
+AZURE_API_KEY = os.getenv("AZURE_API_KEY")
+AZURE_API_BASE = os.getenv("AZURE_API_BASE")
+AZURE_API_VERSION = os.getenv("AZURE_API_VERSION")
 # Supergateway exposes Streamable HTTP endpoint at /mcp
 GITHUB_MCP_URL = os.getenv("GITHUB_MCP_SERVER_URL", "http://localhost:8080/mcp")
 
 # Validate required configuration
-if not OPENAI_API_KEY:
+if not all([AZURE_API_KEY, AZURE_API_BASE, AZURE_API_VERSION, AZURE_DEPLOYMENT]):
     raise ValueError(
-        "OPENAI_API_KEY is required. Please set it in your .env file.\n"
-        "Copy .env.template to .env and add your OpenAI API key."
+        "Azure OpenAI configuration is required. Please set the following in your .env file:\n"
+        "  - AZURE_API_KEY\n"
+        "  - AZURE_API_BASE\n"
+        "  - AZURE_API_VERSION\n"
+        "  - AZURE_DEPLOYMENT_NAME\n"
+        "Copy .env.template to .env and add your Azure OpenAI credentials."
     )
 
 # Create the GitHub test agent
 root_agent = LlmAgent(
-    # Configure LLM using LiteLLM with OpenAI
+    # Configure LLM using LiteLLM with Azure OpenAI
     model=LiteLlm(
-        model=OPENAI_MODEL,
-        api_key=OPENAI_API_KEY,
+        model=f"azure/{AZURE_DEPLOYMENT}",
+        api_key=AZURE_API_KEY,
+        api_base=AZURE_API_BASE,
+        api_version=AZURE_API_VERSION,
         max_tokens=10000,
     ),
 
@@ -114,5 +122,5 @@ root_agent = LlmAgent(
 # Print configuration on import (helpful for debugging)
 if __name__ != "__main__":
     print(f"GitHub Test Agent initialized")
-    print(f"  Model: {OPENAI_MODEL}")
+    print(f"  Azure Deployment: {AZURE_DEPLOYMENT}")
     print(f"  MCP Server: {GITHUB_MCP_URL}")

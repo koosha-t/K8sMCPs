@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: mcp-servers
+  name: ${NAMESPACE}
   labels:
-    app.kubernetes.io/name: mcp-servers
+    app.kubernetes.io/name: ${NAMESPACE}
     app.kubernetes.io/part-of: k8smcps

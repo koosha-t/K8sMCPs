@@ -32,6 +32,9 @@ help: ## Show this help message
 	@echo "Local Development (Kind + Registry):"
 	@grep -E '^(registry-up|registry-down|registry-status|build|push|build-push|kind-up|kind-down|kind-status|dev-deploy|dev-deploy-full):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 	@echo ""
+	@echo "AKS Deployment (Azure):"
+	@grep -E '^(acr-login|acr-build|acr-push|acr-build-push|aks-create-pull-secret|aks-deploy|aks-deploy-full):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+	@echo ""
 	@echo "Quick Start (Local Dev):"
 	@echo "  1. cp .env.template .env  # Configure environment"
 	@echo "  2. make registry-up       # Start local registry"
@@ -41,6 +44,15 @@ help: ## Show this help message
 	@echo "  6. make port-forward      # Access at localhost:8080"
 	@echo ""
 	@echo "Or use: make dev-deploy-full (does steps 2-5 automatically)"
+	@echo ""
+	@echo "Quick Start (AKS):"
+	@echo "  1. kubectl config use-context <aks-cluster>"
+	@echo "  2. make aks-deploy-full  # Does steps 2-4 automatically"
+	@echo ""
+	@echo "Or manually:"
+	@echo "  2. make aks-create-pull-secret"
+	@echo "  3. make acr-build-push"
+	@echo "  4. make aks-deploy"
 	@echo ""
 
 deploy: check-env ## Deploy the GitHub MCP server (namespace, secret, configmap, deployment, service)
@@ -314,3 +326,121 @@ dev-deploy-full: registry-up kind-up build-push deploy ## Complete setup: regist
 	@echo "✓ GitHub MCP Server deployed"
 	@echo ""
 	@echo "Next: make port-forward  # Access at localhost:8080"
+
+# ==============================================================================
+# Azure Container Registry (ACR) & AKS Deployment
+# ==============================================================================
+
+acr-login: check-env ## Authenticate Docker to ACR (uses Azure CLI)
+	@echo "Logging in to ACR using Azure CLI..."
+	@if [ -z "$(ACR_REGISTRY_NAME)" ]; then \
+		echo "ERROR: ACR_REGISTRY_NAME not set in .env file!"; \
+		exit 1; \
+	fi
+	@ACR_NAME=$$(echo $(ACR_REGISTRY_NAME) | sed 's/.azurecr.io//'); \
+	if ! command -v az >/dev/null 2>&1; then \
+		echo "ERROR: Azure CLI (az) is not installed!"; \
+		echo "Install: https://docs.microsoft.com/cli/azure/install-azure-cli"; \
+		exit 1; \
+	fi; \
+	az acr login --name $$ACR_NAME
+	@echo "✓ Successfully logged in to ACR"
+
+acr-login-sp: check-env ## Authenticate Docker to ACR (uses service principal credentials)
+	@echo "Logging in to ACR with service principal: $(ACR_REGISTRY_NAME)"
+	@if [ -z "$(ACR_REGISTRY_NAME)" ] || [ -z "$(ACR_USERNAME)" ] || [ -z "$(ACR_PASSWORD)" ]; then \
+		echo "ERROR: ACR credentials not set in .env file!"; \
+		echo ""; \
+		echo "Please set the following variables in .env:"; \
+		echo "  ACR_REGISTRY_NAME=<registry>.azurecr.io"; \
+		echo "  ACR_USERNAME=<username or service principal id>"; \
+		echo "  ACR_PASSWORD=<password or service principal password>"; \
+		exit 1; \
+	fi
+	@echo $(ACR_PASSWORD) | docker login $(ACR_REGISTRY_NAME) -u $(ACR_USERNAME) --password-stdin
+	@echo "✓ Successfully logged in to ACR"
+
+acr-build: check-env ## Build Docker image with ACR registry tag
+	@echo "Building Docker image for ACR..."
+	@echo "Registry: $(ACR_REGISTRY_NAME)"
+	@echo "Image: $(IMAGE_NAME):$(IMAGE_TAG)"
+	@docker build -t $(ACR_REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_TAG) .
+	@echo ""
+	@echo "✓ Image built successfully"
+	@echo "  Full image: $(ACR_REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_TAG)"
+
+acr-push: acr-login ## Push Docker image to Azure Container Registry
+	@echo "Pushing image to ACR..."
+	@docker push $(ACR_REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_TAG)
+	@echo ""
+	@echo "✓ Image pushed successfully"
+	@echo "  Registry: $(ACR_REGISTRY_NAME)"
+	@echo "  Image: $(IMAGE_NAME):$(IMAGE_TAG)"
+
+acr-build-push: acr-build acr-push ## Build and push Docker image to ACR
+
+aks-create-pull-secret: check-env ## Create imagePullSecret for ACR in AKS cluster
+	@echo "Creating imagePullSecret in namespace $(NAMESPACE)..."
+	@if [ -z "$(ACR_REGISTRY_NAME)" ] || [ -z "$(ACR_USERNAME)" ] || [ -z "$(ACR_PASSWORD)" ]; then \
+		echo "ERROR: ACR credentials not set in .env file!"; \
+		exit 1; \
+	fi
+	@kubectl create namespace $(NAMESPACE) 2>/dev/null || true
+	@kubectl create secret docker-registry $(IMAGE_PULL_SECRET_NAME) \
+		--namespace=$(NAMESPACE) \
+		--docker-server=$(ACR_REGISTRY_NAME) \
+		--docker-username=$(ACR_USERNAME) \
+		--docker-password=$(ACR_PASSWORD) \
+		--dry-run=client -o yaml | kubectl apply -f -
+	@echo ""
+	@echo "✓ imagePullSecret created/updated: $(IMAGE_PULL_SECRET_NAME)"
+
+aks-deploy: check-env ## Deploy GitHub MCP server to AKS using ACR image
+	@echo "Deploying GitHub MCP Server to AKS..."
+	@echo ""
+	@echo "Current kubectl context:"
+	@kubectl config current-context
+	@echo ""
+	@echo "Target namespace: $(NAMESPACE)"
+	@echo ""
+	@if command -v envsubst >/dev/null 2>&1; then \
+		envsubst < namespace.yaml | kubectl apply -f -; \
+		envsubst < configmap.yaml | kubectl apply -f -; \
+		envsubst < deployment-aks.yaml | kubectl apply -f -; \
+		envsubst < service.yaml | kubectl apply -f -; \
+	else \
+		echo "WARNING: envsubst not found, using sed for variable substitution..."; \
+		sed -e "s|\$${NAMESPACE}|$(NAMESPACE)|g" namespace.yaml | kubectl apply -f -; \
+		sed -e "s|\$${NAMESPACE}|$(NAMESPACE)|g" configmap.yaml | kubectl apply -f -; \
+		sed -e "s|\$${NAMESPACE}|$(NAMESPACE)|g" \
+		    -e "s|\$${IMAGE_PULL_SECRET_NAME}|$(IMAGE_PULL_SECRET_NAME)|g" \
+		    -e "s|\$${ACR_REGISTRY_NAME}|$(ACR_REGISTRY_NAME)|g" \
+		    -e "s|\$${IMAGE_NAME}|$(IMAGE_NAME)|g" \
+		    -e "s|\$${IMAGE_TAG}|$(IMAGE_TAG)|g" \
+		    deployment-aks.yaml | kubectl apply -f -; \
+		sed -e "s|\$${NAMESPACE}|$(NAMESPACE)|g" service.yaml | kubectl apply -f -; \
+	fi
+	@echo "Creating GitHub token secret..."
+	@kubectl create secret generic github-mcp-token \
+		--namespace=$(NAMESPACE) \
+		--from-literal=token=$(GITHUB_TOKEN) \
+		--dry-run=client -o yaml | kubectl apply -f -
+	@echo ""
+	@echo "✓ Deployment complete!"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  make verify       # Check deployment status"
+	@echo "  make logs         # View server logs"
+	@echo "  make port-forward # Access at localhost:8080"
+
+aks-deploy-full: aks-create-pull-secret acr-build-push aks-deploy ## Complete AKS setup: create secret + build + push + deploy
+	@echo ""
+	@echo "=========================================="
+	@echo "AKS deployment complete!"
+	@echo "=========================================="
+	@echo ""
+	@echo "✓ imagePullSecret created"
+	@echo "✓ Image built and pushed to ACR"
+	@echo "✓ GitHub MCP Server deployed to AKS"
+	@echo ""
+	@echo "Next: make verify  # Check deployment status"
