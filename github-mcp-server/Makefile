@@ -410,7 +410,7 @@ aks-deploy: check-env ## Deploy GitHub MCP server to AKS using ACR image
 		--from-literal=token=$(GITHUB_TOKEN) \
 		--dry-run=client -o yaml | kubectl apply -f -
 	@echo "Applying manifests..."
-	@kubectl apply -f configmap.yaml
+	@kubectl apply -f configmap.yaml -n $(NAMESPACE)
 	@if command -v envsubst >/dev/null 2>&1; then \
 		envsubst < deployment-aks.yaml | kubectl apply -f -; \
 	else \
@@ -422,7 +422,7 @@ aks-deploy: check-env ## Deploy GitHub MCP server to AKS using ACR image
 		    -e "s|\$${IMAGE_TAG}|$(IMAGE_TAG)|g" \
 		    deployment-aks.yaml | kubectl apply -f -; \
 	fi
-	@kubectl apply -f service.yaml
+	@kubectl apply -f service.yaml -n $(NAMESPACE)
 	@echo ""
 	@echo "✓ Deployment complete!"
 	@echo ""
