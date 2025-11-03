@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: github-mcp-server
-  namespace: mcp-servers
+  namespace: ${NAMESPACE}
   labels:
     app.kubernetes.io/name: github-mcp-server
     app.kubernetes.io/component: server
@@ -22,11 +22,11 @@ spec:
     spec:
       # Image pull secret for ACR authentication
       imagePullSecrets:
-      - name: acr-secret
+      - name: ${IMAGE_PULL_SECRET_NAME}
 
       containers:
       - name: github-mcp-server
-        image: myregistry.azurecr.io/github-mcp-server:latest
+        image: ${ACR_REGISTRY_NAME}/${IMAGE_NAME}:${IMAGE_TAG}
         imagePullPolicy: Always
 
         # Environment variables from ConfigMap

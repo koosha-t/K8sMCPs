@@ -401,6 +401,8 @@ aks-deploy: check-env ## Deploy GitHub MCP server to AKS using ACR image
 	@echo "Current kubectl context:"
 	@kubectl config current-context
 	@echo ""
+	@echo "Target namespace: $(NAMESPACE)"
+	@echo ""
 	@kubectl apply -f namespace.yaml
 	@echo "Creating secret from .env file..."
 	@kubectl create secret generic github-mcp-token \
@@ -409,7 +411,17 @@ aks-deploy: check-env ## Deploy GitHub MCP server to AKS using ACR image
 		--dry-run=client -o yaml | kubectl apply -f -
 	@echo "Applying manifests..."
 	@kubectl apply -f configmap.yaml
-	@kubectl apply -f deployment-aks.yaml
+	@if command -v envsubst >/dev/null 2>&1; then \
+		envsubst < deployment-aks.yaml | kubectl apply -f -; \
+	else \
+		echo "WARNING: envsubst not found, using sed for variable substitution..."; \
+		sed -e "s|\$${NAMESPACE}|$(NAMESPACE)|g" \
+		    -e "s|\$${IMAGE_PULL_SECRET_NAME}|$(IMAGE_PULL_SECRET_NAME)|g" \
+		    -e "s|\$${ACR_REGISTRY_NAME}|$(ACR_REGISTRY_NAME)|g" \
+		    -e "s|\$${IMAGE_NAME}|$(IMAGE_NAME)|g" \
+		    -e "s|\$${IMAGE_TAG}|$(IMAGE_TAG)|g" \
+		    deployment-aks.yaml | kubectl apply -f -; \
+	fi
 	@kubectl apply -f service.yaml
 	@echo ""
 	@echo "✓ Deployment complete!"
