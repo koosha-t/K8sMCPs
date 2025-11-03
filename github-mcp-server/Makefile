@@ -331,8 +331,23 @@ dev-deploy-full: registry-up kind-up build-push deploy ## Complete setup: regist
 # Azure Container Registry (ACR) & AKS Deployment
 # ==============================================================================
 
-acr-login: check-env ## Authenticate Docker to Azure Container Registry
-	@echo "Logging in to ACR: $(ACR_REGISTRY_NAME)"
+acr-login: check-env ## Authenticate Docker to ACR (uses Azure CLI)
+	@echo "Logging in to ACR using Azure CLI..."
+	@if [ -z "$(ACR_REGISTRY_NAME)" ]; then \
+		echo "ERROR: ACR_REGISTRY_NAME not set in .env file!"; \
+		exit 1; \
+	fi
+	@ACR_NAME=$$(echo $(ACR_REGISTRY_NAME) | sed 's/.azurecr.io//'); \
+	if ! command -v az >/dev/null 2>&1; then \
+		echo "ERROR: Azure CLI (az) is not installed!"; \
+		echo "Install: https://docs.microsoft.com/cli/azure/install-azure-cli"; \
+		exit 1; \
+	fi; \
+	az acr login --name $$ACR_NAME
+	@echo "✓ Successfully logged in to ACR"
+
+acr-login-sp: check-env ## Authenticate Docker to ACR (uses service principal credentials)
+	@echo "Logging in to ACR with service principal: $(ACR_REGISTRY_NAME)"
 	@if [ -z "$(ACR_REGISTRY_NAME)" ] || [ -z "$(ACR_USERNAME)" ] || [ -z "$(ACR_PASSWORD)" ]; then \
 		echo "ERROR: ACR credentials not set in .env file!"; \
 		echo ""; \
