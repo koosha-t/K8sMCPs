@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-mcp-server
+  namespace: mcp-servers
+  labels:
+    app.kubernetes.io/name: github-mcp-server
+    app.kubernetes.io/component: server
+    app.kubernetes.io/part-of: k8smcps
+    app.kubernetes.io/version: "latest"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: github-mcp-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: github-mcp-server
+        app.kubernetes.io/component: server
+        app.kubernetes.io/part-of: k8smcps
+    spec:
+      # Image pull secret for ACR authentication
+      imagePullSecrets:
+      - name: acr-secret
+
+      containers:
+      - name: github-mcp-server
+        image: myregistry.azurecr.io/github-mcp-server:latest
+        imagePullPolicy: Always
+
+        # Environment variables from ConfigMap
+        envFrom:
+        - configMapRef:
+            name: github-mcp-config
+
+        # GitHub Personal Access Token from Secret
+        env:
+        - name: GITHUB_PERSONAL_ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-mcp-token
+              key: token
+
+        # Resource limits and requests
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+
+        # Ports
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+
+        # Liveness probe - TCP socket check
+        # Using TCP probe since /mcp endpoint only accepts POST (not GET for health checks)
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        # Readiness probe - TCP socket check
+        # Using TCP probe since /mcp endpoint only accepts POST (not GET for health checks)
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        # Volume mounts for writable directories
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+
+      # Volumes
+      volumes:
+      - name: tmp
+        emptyDir: {}
+
+      # Security context for the pod
+      securityContext:
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      # Restart policy
+      restartPolicy: Always
