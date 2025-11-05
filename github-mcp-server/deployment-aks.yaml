@@ -45,11 +45,11 @@ spec:
         # Resource limits and requests
         resources:
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 200m
+            memory: 256Mi
           limits:
-            cpu: 500m
-            memory: 512Mi
+            cpu: 1000m
+            memory: 1Gi
 
         # Security context
         securityContext:
@@ -72,10 +72,10 @@ spec:
         livenessProbe:
           tcpSocket:
             port: 8080
-          initialDelaySeconds: 15
+          initialDelaySeconds: 30
           periodSeconds: 30
-          timeoutSeconds: 5
-          failureThreshold: 3
+          timeoutSeconds: 10
+          failureThreshold: 5
 
         # Readiness probe - TCP socket check
         # Using TCP probe since /mcp endpoint only accepts POST (not GET for health checks)
